@@ -1,0 +1,38 @@
+{
+  "model": "coder",
+  "endpoint": "http://127.0.0.1:9090",
+  "passed": 3,
+  "total": 3,
+  "results": [
+    {
+      "task": "add-feature",
+      "passed": true,
+      "turns": 15,
+      "seconds": 355.4,
+      "tokens_prompt": 19168,
+      "tokens_completion": 941,
+      "acceptance_tail": "...                                                                      [100%]\n3 passed in 0.00s\n",
+      "workspace": "/tmp/gauntlet-add-feature-uouo4nua"
+    },
+    {
+      "task": "cross-file-rename",
+      "passed": true,
+      "turns": 11,
+      "seconds": 13.1,
+      "tokens_prompt": 18804,
+      "tokens_completion": 642,
+      "acceptance_tail": "OK\n",
+      "workspace": "/tmp/gauntlet-cross-file-rename-1wqmjmys"
+    },
+    {
+      "task": "fix-bug",
+      "passed": true,
+      "turns": 15,
+      "seconds": 29.8,
+      "tokens_prompt": 21015,
+      "tokens_completion": 1173,
+      "acceptance_tail": ".                                                                        [100%]\n1 passed in 0.00s\n",
+      "workspace": "/tmp/gauntlet-fix-bug-8gzutq8m"
+    }
+  ]
+}

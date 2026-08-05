@@ -1,0 +1,8 @@
+prompt: |
+  Implement the function `slugify` in src/slug.py according to its
+  docstring. Do not modify the tests. Acceptance: `python3 -m pytest -q`
+  exits 0.
+acceptance: python3 -m pytest -q
+protected: tests
+timeout_s: 90
+max_turns: 15

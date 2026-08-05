@@ -1,0 +1,11 @@
+prompt: |
+  The codebase uses the badly-named function `do_it` defined in
+  app/core.py and called from app/cli.py and app/report.py. Rename it to
+  `generate_report` everywhere, keeping behavior identical. A checker
+  script will verify the old name is gone, the new name is used in all
+  three files, and the program still runs. Acceptance:
+  `python3 check.py` exits 0.
+acceptance: python3 check.py
+protected: check.py
+timeout_s: 90
+max_turns: 15

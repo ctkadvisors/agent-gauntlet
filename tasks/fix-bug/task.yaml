@@ -1,0 +1,7 @@
+prompt: |
+  The test suite in this workspace fails. Find the bug in the source code
+  (not the tests) and fix it. Acceptance: `python3 -m pytest -q` exits 0.
+acceptance: python3 -m pytest -q
+protected: tests
+timeout_s: 90
+max_turns: 15

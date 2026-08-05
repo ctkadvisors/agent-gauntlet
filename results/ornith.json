@@ -1,0 +1,38 @@
+{
+  "model": "ornith",
+  "endpoint": "http://127.0.0.1:9090",
+  "passed": 2,
+  "total": 3,
+  "results": [
+    {
+      "task": "add-feature",
+      "passed": true,
+      "turns": 7,
+      "seconds": 39.8,
+      "tokens_prompt": 7272,
+      "tokens_completion": 594,
+      "acceptance_tail": "...                                                                      [100%]\n3 passed in 0.00s\n",
+      "workspace": "/tmp/gauntlet-add-feature-s6mnp_cp"
+    },
+    {
+      "task": "cross-file-rename",
+      "passed": true,
+      "turns": 7,
+      "seconds": 12.3,
+      "tokens_prompt": 8102,
+      "tokens_completion": 616,
+      "acceptance_tail": "OK\n",
+      "workspace": "/tmp/gauntlet-cross-file-rename-1eog7g8f"
+    },
+    {
+      "task": "fix-bug",
+      "passed": false,
+      "turns": 14,
+      "seconds": 113.4,
+      "tokens_prompt": 49978,
+      "tokens_completion": 6274,
+      "acceptance_tail": "_______________________\n\n    def test_transfer_balances():\n>       l = Ledger()\n            ^^^^^^^^\nE       TypeError: Ledger.__init__() missing 1 required positional argument: 'name'\n\ntests/test_ledger.py:7: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_ledger.py::test_transfer_balances - TypeError: Ledger.__ini...\n1 failed in 0.01s\n",
+      "workspace": "/tmp/gauntlet-fix-bug-33v8jd19"
+    }
+  ]
+}
