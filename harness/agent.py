@@ -52,21 +52,34 @@ SYSTEM = (
 
 class Agent:
     def __init__(self, endpoint: str, model: str, workspace: Path,
-                 max_turns: int = 30, timeout_s: int = 120):
+                 max_turns: int = 30, timeout_s: int = 120,
+                 temperature: float = 0.2, max_tokens: int = 2048,
+                 request_options: dict | None = None):
         self.endpoint = endpoint.rstrip("/")
         self.model = model
         self.workspace = workspace
         self.max_turns = max_turns
         self.timeout_s = timeout_s
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.request_options = request_options if request_options is not None else {}
         self.tokens_prompt = 0
         self.tokens_completion = 0
+        self.tokens_reasoning: int | None = None
+        self._reasoning_usage_complete = True
+        self._chat_count = 0
+        self.turns = 0
+        self.seconds = 0.0
+        self.termination_reason: str | None = None
+        self.protocol_error: str | None = None
         self.transcript: list[dict] = []
 
-    def _chat(self, messages: list[dict]) -> dict:
+    def _chat(self, messages: list[dict]) -> tuple[dict, str | None]:
         payload = {
             "model": self.model, "messages": messages, "tools": TOOLS,
-            "temperature": 0.2, "max_tokens": 2048,
+            "temperature": self.temperature, "max_tokens": self.max_tokens,
         }
+        payload.update(self.request_options)
         req = urllib.request.Request(
             f"{self.endpoint}/v1/chat/completions",
             data=json.dumps(payload).encode(),
@@ -77,7 +90,16 @@ class Agent:
         usage = out.get("usage") or {}
         self.tokens_prompt += usage.get("prompt_tokens", 0)
         self.tokens_completion += usage.get("completion_tokens", 0)
-        return out["choices"][0]["message"]
+        self._chat_count += 1
+        details = usage.get("completion_tokens_details") or {}
+        reasoning_tokens = details.get("reasoning_tokens")
+        if reasoning_tokens is None:
+            self._reasoning_usage_complete = False
+            self.tokens_reasoning = None
+        elif self._reasoning_usage_complete:
+            self.tokens_reasoning = (self.tokens_reasoning or 0) + reasoning_tokens
+        choice = out["choices"][0]
+        return choice["message"], choice.get("finish_reason")
 
     def _run_tool(self, name: str, args: dict) -> str:
         if name == "bash":
@@ -107,26 +129,58 @@ class Agent:
         messages = [{"role": "system", "content": SYSTEM},
                     {"role": "user", "content": task_prompt}]
         t0 = time.time()
-        turns = 0
-        for _ in range(self.max_turns):
-            turns += 1
-            msg = self._chat(messages)
-            self.transcript.append(msg)
-            calls = msg.get("tool_calls") or []
-            messages.append({k: v for k, v in msg.items() if v is not None})
-            if not calls:
-                break
-            for call in calls:
-                fn = call["function"]
-                try:
-                    args = json.loads(fn.get("arguments") or "{}")
-                except json.JSONDecodeError:
-                    args = {}
-                result = self._run_tool(fn["name"], args)
-                self.transcript.append({"tool": fn["name"], "args": args,
-                                        "result": result[:2000]})
-                messages.append({"role": "tool", "tool_call_id": call.get("id", "0"),
-                                 "content": result})
-        return {"turns": turns, "seconds": round(time.time() - t0, 1),
+        seen_call_ids: set[str] = set()
+        self.termination_reason = "max_turns"
+        try:
+            for _ in range(self.max_turns):
+                self.turns += 1
+                msg, finish_reason = self._chat(messages)
+                self.transcript.append(msg)
+                calls = msg.get("tool_calls") or []
+                messages.append({k: v for k, v in msg.items() if v is not None})
+                if finish_reason == "length":
+                    self.termination_reason = "length"
+                    break
+                if not calls:
+                    if finish_reason == "stop":
+                        self.termination_reason = "stop"
+                    else:
+                        self.termination_reason = "protocol_error"
+                        self.protocol_error = (
+                            f"response without tool calls ended with {finish_reason!r}"
+                        )
+                    break
+                call_ids = [call.get("id") for call in calls]
+                if (any(not isinstance(call_id, str) or not call_id
+                        for call_id in call_ids)
+                        or len(set(call_ids)) != len(call_ids)
+                        or any(call_id in seen_call_ids for call_id in call_ids)):
+                    self.termination_reason = "protocol_error"
+                    self.protocol_error = "tool calls require unique, non-empty string ids"
+                    break
+                seen_call_ids.update(call_ids)
+                for call in calls:
+                    fn = call["function"]
+                    try:
+                        args = json.loads(fn.get("arguments") or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    result = self._run_tool(fn["name"], args)
+                    self.transcript.append({"tool": fn["name"], "args": args,
+                                            "result": result[:2000]})
+                    messages.append({"role": "tool", "tool_call_id": call["id"],
+                                     "content": result})
+        finally:
+            self.seconds = round(time.time() - t0, 1)
+        reasoning_tokens = (
+            self.tokens_reasoning
+            if self._chat_count and self._reasoning_usage_complete else None
+        )
+        return {"turns": self.turns, "seconds": self.seconds,
                 "tokens_prompt": self.tokens_prompt,
-                "tokens_completion": self.tokens_completion}
+                "tokens_completion": self.tokens_completion,
+                "tokens_reasoning": reasoning_tokens,
+                "termination_reason": self.termination_reason,
+                "protocol_error": self.protocol_error,
+                "temperature": self.request_options.get("temperature", self.temperature),
+                "max_tokens": self.request_options.get("max_tokens", self.max_tokens)}
